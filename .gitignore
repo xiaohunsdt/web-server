@@ -1,0 +1,48 @@
+.idea/
+CMakeLists.txt
+cmake-build-debug/
+
+
+# Ignore garbage of OS X
+*.DS_Store
+
+# Ignore vim cache
+*.swp
+
+# Documentation files
+doc/*.1
+doc/*.8
+doc/*.gz
+doc/*.xml
+doc/*.html
+
+#	Do not edit the following section
+# 	Edit Compile Debug Document Distribute
+*~
+*.bak
+*.bin
+*.dll
+*.exe
+*-ISO*.bdf
+*-JIS*.bdf
+*-KOI8*.bdf
+*.kld
+*.ko
+*.ko.cmd
+*.lai
+*.l[oa]
+*.[oa]
+*.obj
+*.patch
+*.so
+*.pcf.gz
+*.pdb
+*.tar
+*.tar.bz2
+*.tar.gz
+*.tgz
+*.snap
+#
+
+# Visual Studio Code
+.vscode/*

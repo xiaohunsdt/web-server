@@ -8,11 +8,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
+#include <dirent.h>
 
 #include "wrap.h"
 #include "NetServer.h"
 #include "utils.cpp"
+#include "pub.h"
 
 NetServer::NetServer() {
     new(this)NetServer("0.0.0.0", 8888);
@@ -23,7 +24,7 @@ NetServer::NetServer(const char *address, int port) : port(port) {
 
     //更改工作路径
     char path[255] = {0};
-    sprintf(path,"%s%s",getenv("HOME"),"/Desktop/web-server/webapp");
+    sprintf(path, "%s%s", getenv("HOME"), "/Desktop/web-server/webapp");
     chdir(path);
 }
 
@@ -48,6 +49,7 @@ std::shared_ptr<HttpRequest> NetServer::getHttpRequest(char *requestData) {
                 sscanf(token, "%[^ ] %[^ ] %[^\r]", requestType, fileName, protocal);
 //                std::cout << requestType << "--" << fileName << "--" << protocal << std::endl;
                 httpRequest->requestType = requestType;
+                strdecode(fileName, fileName);
                 httpRequest->fileName = fileName + 1;
                 httpRequest->protocal = protocal;
                 break;
@@ -57,6 +59,9 @@ std::shared_ptr<HttpRequest> NetServer::getHttpRequest(char *requestData) {
         index++;
     }
 
+    if (httpRequest->fileName.empty() || httpRequest->fileName == "/" || httpRequest->fileName == "\\") {
+        httpRequest->fileName = "index.html";
+    }
     return httpRequest;
 }
 
@@ -104,13 +109,46 @@ void NetServer::serv_action(std::shared_ptr<HttpRequest> httpRequest) {
         httpResponse = new HttpResponse(404, "Not Found");
     } else {
         httpResponse = new HttpResponse();
-        httpResponse->setFile(httpRequest->fileName.c_str(), st.st_size);
+        if (S_ISREG(st.st_mode)) {
+            httpResponse->setFile(httpRequest->fileName.c_str(), st.st_size);
+        } else if (S_ISDIR(st.st_mode)) {
+            struct dirent **namelist;
+            StringBuffer stringBuffer;
+            int n;
+            n = scandir(httpRequest->fileName.c_str(), &namelist, nullptr, alphasort);
+            if (n < 0) {
+                perror("scandir");
+            } else {
+                char buffer[512];
+                while (n--) {
+                    memset(buffer, 0, sizeof(buffer));
+                    if (namelist[n]->d_type == DT_DIR) {
+                        sprintf(buffer, "<li><a href=%s/>%s</a></li>", namelist[n]->d_name, namelist[n]->d_name);
+                    } else {
+                        sprintf(buffer, "<li><a href=%s/%s>%s</a></li>", httpRequest->fileName.c_str(),
+                                namelist[n]->d_name, namelist[n]->d_name);
+                    }
+
+                    stringBuffer.append(buffer, sizeof(buffer));
+                    free(namelist[n]);
+                }
+                free(namelist);
+                httpResponse->setContent(stringBuffer.getBuffer(), stringBuffer.getLength());
+                httpResponse->fileType = get_mime_type(".html");
+            }
+        }
     }
 
     httpResponse->sendto(httpRequest->cfd);
 }
 
 void NetServer::start() {
+    struct sigaction __action;
+    sigemptyset(&__action.sa_mask);
+    __action.sa_flags = 0;
+    __action.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &__action, NULL);
+
     int lfd = Socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
     int reuse = 1;

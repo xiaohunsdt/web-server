@@ -12,8 +12,6 @@ public:
     StringBuffer() : size(0) {
         this->buffer = (char *) malloc(INIT_SIZE);
         memset(this->buffer, 0, INIT_SIZE);
-
-        //预留一个\0位
         this->capacity = INIT_SIZE;
     }
 
@@ -23,7 +21,7 @@ public:
 
     bool append(char *str, int size) {
         if (this->capacity - this->size < size) {
-            realloc(this->buffer, (this->capacity + size) * 2);
+            this->buffer = (char *)realloc(this->buffer, (this->capacity + size) * 2);
             this->capacity = (this->capacity + size) * 2;
             memset(this->buffer + this->size, 0, this->capacity - this->size);
         }
@@ -32,12 +30,16 @@ public:
         this->size += size;
     }
 
-    std::string toString() {
+    std::string toString() const{
         return std::string(buffer);
     }
 
-    char *getBuffer() {
+    char *getBuffer() const{
         return this->buffer;
+    }
+
+    int getLength() const{
+        return this->size;
     }
 
 private:

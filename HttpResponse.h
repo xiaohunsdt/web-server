@@ -13,7 +13,11 @@ public:
 
     HttpResponse(int code, std::string msg);
 
+    ~HttpResponse();
+
     void setFile(const char *fileName, int len);
+
+    void setContent(const char *content, int len);
 
     void sendto(int cfd) const;
 
@@ -22,6 +26,7 @@ public:
     std::string msg;
     std::string fileType;
     std::string fileName;
+    char *content;
     int contentLength = 0;
 };
 

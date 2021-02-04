@@ -12,6 +12,7 @@
 #include <utility>
 #include "pub.h"
 #include "wrap.h"
+#include "utils.cpp"
 
 HttpResponse::HttpResponse() {
     new(this)HttpResponse(200, "OK");
@@ -23,12 +24,45 @@ HttpResponse::HttpResponse(int code, std::string msg) : code(code), msg(std::mov
         stat("404.html", &st);
         this->setFile("404.html", st.st_size);
     }
-};
+}
+
+HttpResponse::~HttpResponse() {
+    if (this->contentLength != 0) {
+        free(this->content);
+    }
+}
 
 void HttpResponse::setFile(const char *fileName, int len) {
     this->fileName = fileName;
     this->fileType = get_mime_type(fileName);
+
+    //将文件放入content中
+    StringBuffer stringBuffer;
+    int fd = open(this->fileName.c_str(), O_RDONLY);
+    if (fd < 0) {
+        perror("open error!");
+        return;
+    }
+
+    char buf[1024] = {0};
+    int n;
+    while (1) {
+        n = read(fd, buf, sizeof(buf));
+        if (n <= 0) {
+            break;
+        }
+        stringBuffer.append(buf, n);
+    }
+    close(fd);
+
+    this->setContent(stringBuffer.getBuffer(), stringBuffer.getLength());
+}
+
+void HttpResponse::setContent(const char *content, int len) {
     this->contentLength = len;
+    this->content = (char *) malloc(len + 1);
+    memcpy(this->content, content, len);
+    this->content[len] = 0;
 }
 
 void HttpResponse::sendto(int cfd) const {
@@ -42,21 +76,7 @@ void HttpResponse::sendto(int cfd) const {
     strcat(buf, "\r\n");
     Write(cfd, buf, strlen(buf));
 
-    if (!this->fileName.empty()) {
-        int fd = open(this->fileName.c_str(), O_RDONLY);
-        if (fd < 0) {
-            perror("open error!");
-            return;
-        }
-        buf[1024] = {0};
-        int n;
-        while (1) {
-            n = read(fd, buf, sizeof(buf));
-            if (n <= 0) {
-                break;
-            }
-            write(cfd, buf, n);
-        }
-        close(fd);
+    if (this->contentLength > 0) {
+        Write(cfd, this->content, this->contentLength);
     }
 }

@@ -9,6 +9,28 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <utility>
+#include "pub.h"
+#include "wrap.h"
+
+HttpResponse::HttpResponse() {
+    new(this)HttpResponse(200, "OK");
+}
+
+HttpResponse::HttpResponse(int code, std::string msg) : code(code), msg(std::move(msg)) {
+    if (code == 404) {
+        struct stat st;
+        stat("404.html", &st);
+        this->setFile("404.html", st.st_size);
+    }
+};
+
+void HttpResponse::setFile(const char *fileName, int len) {
+    this->fileName = fileName;
+    this->fileType = get_mime_type(fileName);
+    this->contentLength = len;
+}
+
 void HttpResponse::sendto(int cfd) const {
     char buf[1024] = {0};
     sprintf(buf, "HTTP/1.1 %d %s \r\n", this->code, this->msg.c_str());
@@ -18,6 +40,7 @@ void HttpResponse::sendto(int cfd) const {
     }
 
     strcat(buf, "\r\n");
+    Write(cfd, buf, strlen(buf));
 
     if (!this->fileName.empty()) {
         int fd = open(this->fileName.c_str(), O_RDONLY);
@@ -25,16 +48,15 @@ void HttpResponse::sendto(int cfd) const {
             perror("open error!");
             return;
         }
-        char buf[1024];
+        buf[1024] = {0};
         int n;
         while (1) {
             n = read(fd, buf, sizeof(buf));
-            if(n <= 0){
+            if (n <= 0) {
                 break;
             }
-            write(cfd,buf,n);
+            write(cfd, buf, n);
         }
+        close(fd);
     }
-
-
 }

@@ -4,17 +4,25 @@
 
 #ifndef WEB_SERVER_HTTPRESPONSE_H
 #define WEB_SERVER_HTTPRESPONSE_H
+
 #include <string>
 
 class HttpResponse {
 public:
+    HttpResponse();
+
+    HttpResponse(int code, std::string msg);
+
+    void setFile(const char *fileName, int len);
+
     void sendto(int cfd) const;
+
 public:
     int code;
     std::string msg;
     std::string fileType;
     std::string fileName;
-    int contentLength;
+    int contentLength = 0;
 };
 
 

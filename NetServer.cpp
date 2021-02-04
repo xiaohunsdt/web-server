@@ -20,6 +20,11 @@ NetServer::NetServer() {
 
 NetServer::NetServer(const char *address, int port) : port(port) {
     memcpy(this->address, address, strlen(address));
+
+    //更改工作路径
+    char path[255] = {0};
+    sprintf(path,"%s%s",getenv("HOME"),"/Desktop/web-server/webapp");
+    chdir(path);
 }
 
 NetServer::~NetServer() {
@@ -43,7 +48,7 @@ std::shared_ptr<HttpRequest> NetServer::getHttpRequest(char *requestData) {
                 sscanf(token, "%[^ ] %[^ ] %[^\r]", requestType, fileName, protocal);
 //                std::cout << requestType << "--" << fileName << "--" << protocal << std::endl;
                 httpRequest->requestType = requestType;
-                httpRequest->fileName = fileName;
+                httpRequest->fileName = fileName + 1;
                 httpRequest->protocal = protocal;
                 break;
             }
@@ -93,11 +98,16 @@ void NetServer::serv_read_cb(ev::io &watcher, int revents) {
 }
 
 void NetServer::serv_action(std::shared_ptr<HttpRequest> httpRequest) {
-    struct stat st;
     HttpResponse *httpResponse;
+    struct stat st;
     if (stat(httpRequest->fileName.c_str(), &st) < 0) {
-        httpResponse = new HttpResponse(404,"NOT FOUND");
+        httpResponse = new HttpResponse(404, "Not Found");
+    } else {
+        httpResponse = new HttpResponse();
+        httpResponse->setFile(httpRequest->fileName.c_str(), st.st_size);
     }
+
+    httpResponse->sendto(httpRequest->cfd);
 }
 
 void NetServer::start() {
